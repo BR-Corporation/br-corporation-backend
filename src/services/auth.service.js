@@ -155,7 +155,7 @@ const loginCustomer = async (phoneNumber) => {
 
     }
 
-    if (!customer.otpVerified) {
+    if (!customer.otpVerified && !customer.otpBypass) {
 
         throw new BusinessError(
 
@@ -194,9 +194,12 @@ const loginCustomer = async (phoneNumber) => {
     const profileResponse =
         buildCustomerProfile(profile);
 
-    customer.otpVerified = false;
-
-    await customer.save();
+    // Only reset otpVerified for customers who need the regular OTP flow.
+    // otpBypass customers stay logged-in-eligible indefinitely (admin-managed).
+    if (!customer.otpBypass) {
+        customer.otpVerified = false;
+        await customer.save();
+    }
 
    return {
     success: true,
@@ -541,11 +544,13 @@ const logout = async (userId) => {
 };
 
 /**
- * Admin bypass: manually mark a customer's phone as OTP-verified.
- * For use when SMS delivery is blocked (e.g. Twilio trial restrictions) and
- * admin has verified the customer's identity out-of-band (phone call, etc.)
+ * Admin bypass: toggle a customer's persistent OTP bypass on or off.
+ * ON  — customer can log in freely with just their phone number (no OTP).
+ * OFF — normal OTP flow applies again.
+ * Use when SMS delivery is blocked (Twilio trial, DLT pending, etc.) and
+ * admin has verified the customer's identity out-of-band.
  */
-const adminMarkCustomerOtpVerified = async (phoneNumber) => {
+const adminMarkCustomerOtpVerified = async (phoneNumber, enable = true) => {
     const Otp = require("../models/otp.model");
     const customer = await User.findOne({ phoneNumber, role: "customer" });
     if (!customer) {
@@ -557,17 +562,22 @@ const adminMarkCustomerOtpVerified = async (phoneNumber) => {
     if (customer.status === "suspended") {
         throw new BusinessError("Cannot verify a suspended customer.", 400);
     }
-    customer.otpVerified = true;
+    customer.otpBypass = Boolean(enable);
+    // If we're enabling, also flip otpVerified so an in-flight login succeeds
+    if (enable) customer.otpVerified = true;
     await customer.save();
-    // Clear any lingering OTP doc so the customer can still request one later normally
+    // Clear any lingering OTP doc so future normal OTP flow starts clean
     await Otp.deleteMany({ phoneNumber });
     return {
         success: true,
-        message: `${customer.Name} can now log in without OTP once.`,
+        message: enable
+            ? `${customer.Name} can now sign in without OTP. Turn off when SMS is working.`
+            : `OTP bypass removed for ${customer.Name}. They'll need OTP on next login.`,
         customer: {
             id: customer._id,
             Name: customer.Name,
-            phoneNumber: customer.phoneNumber
+            phoneNumber: customer.phoneNumber,
+            otpBypass: customer.otpBypass
         }
     };
 };

@@ -188,11 +188,12 @@ const getEmployeeActivity = async (req, res, next) => {
 
 const adminMarkCustomerOtpVerified = async (req, res, next) => {
     try {
-        const { phoneNumber } = req.body;
+        const { phoneNumber, enable } = req.body;
         if (!phoneNumber) {
             return res.status(400).json({ success: false, message: "phoneNumber is required." });
         }
-        const result = await authService.adminMarkCustomerOtpVerified(phoneNumber);
+        const shouldEnable = enable === false ? false : true;
+        const result = await authService.adminMarkCustomerOtpVerified(phoneNumber, shouldEnable);
         return res.status(200).json(result);
     } catch (error) {
         next(error);

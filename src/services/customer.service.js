@@ -64,7 +64,7 @@ const getCustomers = async (query, loggedInUser) => {
         customers = await CustomerProfile.find(filter)
             .populate({
                 path: "user",
-                select: "Name phoneNumber status role"
+                select: "Name phoneNumber status role otpBypass"
             })
             .populate({
                 path: "assignedSalesperson",
@@ -78,7 +78,7 @@ const getCustomers = async (query, loggedInUser) => {
         customers = await CustomerProfile.find(filter)
             .populate({
                 path: "user",
-                select: "Name phoneNumber status role"
+                select: "Name phoneNumber status role otpBypass"
             })
             .populate({
                 path: "assignedSalesperson",
@@ -108,7 +108,7 @@ const getCustomerById = async (customerProfileId, loggedInUser) => {
     const customer = await CustomerProfile.findById(customerProfileId)
         .populate({
             path: "user",
-            select: "Name phoneNumber status role"
+            select: "Name phoneNumber status role otpBypass"
         })
         .populate({
             path: "assignedSalesperson",
@@ -156,7 +156,7 @@ const getMyCustomers = async (salespersonId) => {
     })
         .populate({
             path: "user",
-            select: "Name phoneNumber status role"
+            select: "Name phoneNumber status role otpBypass"
         });
 
     return customers.map(buildCustomerSummary);
