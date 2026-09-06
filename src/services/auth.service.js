@@ -457,7 +457,7 @@ const assignSalesperson = async (customerId, salespersonId, options = { save: tr
 
     user: customerId
 
-});
+}).populate({ path: "assignedSalesperson", select: "Name email" });
 
 if (!profile) {
 
@@ -465,12 +465,40 @@ if (!profile) {
 
 }
 
+const previousSalesperson = profile.assignedSalesperson;
+const isReassignment = previousSalesperson &&
+    previousSalesperson._id &&
+    previousSalesperson._id.toString() !== salesperson._id.toString();
+
 profile.assignedSalesperson = salesperson._id;
 
 if(options.save){
 
     await profile.save();
 
+}
+
+// Notify both the outgoing and the new salesperson
+if (isReassignment && options.save) {
+    try {
+        const { createNotification } = require("./notification.service");
+        await createNotification({
+            recipient: previousSalesperson._id,
+            type: "customer_reassigned",
+            title: "Customer reassigned",
+            message: `${customer.Name} (${profile.businessName}) has been reassigned to ${salesperson.Name}.`,
+            referenceEntity: "CustomerProfile",
+            referenceId: profile._id,
+        });
+        await createNotification({
+            recipient: salesperson._id,
+            type: "customer_reassigned",
+            title: "New customer assigned to you",
+            message: `${customer.Name} (${profile.businessName}) is now yours.`,
+            referenceEntity: "CustomerProfile",
+            referenceId: profile._id,
+        });
+    } catch (_) { /* non-fatal */ }
 }
 
 await createInternalActivity({
@@ -481,9 +509,11 @@ await createInternalActivity({
 
     activityType: "system",
 
-    title: "Salesperson Assigned",
+    title: isReassignment ? "Salesperson Reassigned" : "Salesperson Assigned",
 
-    description: `Salesperson ${salesperson.Name} assigned to customer ${customer.Name}.`,
+    description: isReassignment
+        ? `Reassigned from ${previousSalesperson.Name} to ${salesperson.Name}. All order/payment/quotation history stays with the customer.`
+        : `Salesperson ${salesperson.Name} assigned to customer ${customer.Name}.`,
 
     metadata: {
 
@@ -491,7 +521,11 @@ await createInternalActivity({
 
         salespersonId: salesperson._id,
 
-        salespersonName: salesperson.Name
+        salespersonName: salesperson.Name,
+
+        previousSalespersonId: previousSalesperson?._id,
+
+        previousSalespersonName: previousSalesperson?.Name
 
     }
 
