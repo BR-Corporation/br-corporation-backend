@@ -328,26 +328,31 @@ const createEmployee = async (employeeData) => {
     role
 });
 
-// Send welcome email (don't fail employee creation if email fails)
+// Send welcome email (don't fail employee creation if email fails, but surface it)
+let emailSent = false;
+let emailError = null;
 try {
-
     await sendEmployeeWelcomeEmail({
         Name,
         email,
         temporaryPassword
     });
-
+    emailSent = true;
+    console.log(`[email] welcome email sent to ${email}`);
 } catch (error) {
-
-    console.error("Failed to send welcome email:", error.message);
-
+    emailError = error.message || String(error);
+    console.error(`[email] Failed to send welcome email to ${email}:`, emailError);
 }
 
 return {
     success: true,
-    message: "Employee created successfully.",
+    message: emailSent
+        ? "Employee created and welcome email sent."
+        : "Employee created, but welcome email could not be sent. Share the temporary password manually.",
     employeeId: employee._id,
-    temporaryPassword
+    temporaryPassword,
+    emailSent,
+    emailError
 };
 };
 // REMOVED: adminUser parameter and role verification check
