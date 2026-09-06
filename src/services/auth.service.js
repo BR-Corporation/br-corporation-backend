@@ -328,15 +328,17 @@ const createEmployee = async (employeeData) => {
     role
 });
 
-// Send welcome email (don't fail employee creation if email fails, but surface it)
+// Send welcome email (don't fail employee creation if email fails, but surface it).
+// Hard-wrap in a 12-second timeout so a stuck SMTP never hangs the request.
 let emailSent = false;
 let emailError = null;
 try {
-    await sendEmployeeWelcomeEmail({
-        Name,
-        email,
-        temporaryPassword
-    });
+    await Promise.race([
+        sendEmployeeWelcomeEmail({ Name, email, temporaryPassword }),
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Email send timed out after 12s")), 12000)
+        ),
+    ]);
     emailSent = true;
     console.log(`[email] welcome email sent to ${email}`);
 } catch (error) {

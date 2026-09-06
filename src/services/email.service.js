@@ -5,7 +5,12 @@ const transporter = nodemailer.createTransport({
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
-    }
+    },
+    // Aggressive timeouts so a broken SMTP doesn't hang the API for 90+ sec.
+    // Free Render + Gmail from outside your usual IP sometimes stalls silently.
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 8000,
 });
 
 const sendEmployeeWelcomeEmail = async ({
