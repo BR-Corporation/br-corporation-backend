@@ -1,7 +1,7 @@
 {
-  "name": "crm-backend",
+  "name": "br-corporation-backend",
   "version": "1.0.0",
-  "description": "Backend for CRM Application",
+  "description": "Backend for BR Corporation wholesale CRM",
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",
