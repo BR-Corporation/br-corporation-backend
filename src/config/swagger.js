@@ -4,9 +4,9 @@ const options = {
     definition: {
         openapi: "3.0.0",
         info: {
-            title: "Rock & Roll CRM API",
+            title: "BR Corporation API",
             version: "1.0.0",
-            description: "REST API Documentation for Rock & Roll CRM"
+            description: "REST API Documentation for BR Corporation"
         },
         servers: [
             {

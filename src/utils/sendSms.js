@@ -40,7 +40,7 @@ const isMsg91Configured = () =>
 
 const buildOtpBody = (otp) => {
     const template = process.env.SMS_OTP_TEMPLATE
-        || "Your CRM Studio OTP is {{OTP}}. Valid for 5 minutes. Do not share this code.";
+        || "Your BR Corporation OTP is {{OTP}}. Valid for 5 minutes. Do not share this code.";
     const body = template.replace(/\{\{OTP\}\}/g, String(otp));
     // Twilio trial accounts require this prefix on every outgoing SMS.
     // It is added automatically by Twilio if omitted, but adding it explicitly

@@ -112,7 +112,8 @@ const createQuotation = async (quotationData, loggedInUser) => {
         items,
         validUntil,
         notes,
-        salespersonId
+        salespersonId,
+        quotationRequestId
     } = quotationData;
 
     const customerProfile = await CustomerProfile.findById(customerProfileId);
@@ -260,6 +261,14 @@ const createQuotation = async (quotationData, loggedInUser) => {
         referenceId: quotation._id
 
     });
+
+    // If this quotation was created against a customer request, mark it quoted.
+    if (quotationRequestId) {
+        try {
+            const { markQuoted } = require("./quotationRequest.service");
+            await markQuoted(quotationRequestId, quotation._id);
+        } catch (_) { /* non-fatal */ }
+    }
 
     return buildQuotationDetail(quotation);
 

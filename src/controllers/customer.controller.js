@@ -89,6 +89,15 @@ const removeCustomer = async (req, res, next) => {
     }
 
 };
+const updateMyProfile = async (req, res, next) => {
+    try {
+        const result = await customerService.updateMyProfile(req.user._id, req.body);
+        return res.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
 const hardDeleteCustomer = async (req, res, next) => {
     try {
         const result = await authService.hardDeleteCustomer(req.params.customerProfileId);
@@ -108,6 +117,8 @@ module.exports = {
 
     removeCustomer,
 
-    hardDeleteCustomer
+    hardDeleteCustomer,
+
+    updateMyProfile
 
 };

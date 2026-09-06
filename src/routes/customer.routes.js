@@ -24,6 +24,13 @@ router.get(
     customerController.getMyCustomers
 );
 
+router.patch(
+    "/me/profile",
+    authenticate,
+    authorize("customer"),
+    customerController.updateMyProfile
+);
+
 router.get(
     "/:customerProfileId",
     authenticate,

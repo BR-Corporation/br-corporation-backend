@@ -15,9 +15,9 @@ const sendEmployeeWelcomeEmail = async ({
 }) => {
 
     const mailOptions = {
-        from: `"Rock & Roll CRM" <${process.env.EMAIL_USER}>`,
+        from: `"BR Corporation" <${process.env.EMAIL_USER}>`,
         to: email,
-        subject: "Welcome to Rock & Roll CRM",
+        subject: "Welcome to BR Corporation",
 
         html: `
         <!DOCTYPE html>
@@ -78,7 +78,7 @@ const sendEmployeeWelcomeEmail = async ({
             <div class="container">
 
                 <div class="header">
-                    <h2>Welcome to Rock & Roll CRM 🚀</h2>
+                    <h2>Welcome to BR Corporation 🚀</h2>
                 </div>
 
                 <div class="content">
@@ -109,7 +109,7 @@ const sendEmployeeWelcomeEmail = async ({
 
                 <div class="footer">
 
-                    © ${new Date().getFullYear()} Rock & Roll CRM
+                    © ${new Date().getFullYear()} BR Corporation
 
                 </div>
 

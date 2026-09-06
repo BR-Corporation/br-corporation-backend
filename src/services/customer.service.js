@@ -191,6 +191,39 @@ const removeCustomer = async (customerProfileId) => {
     };
 };
 
+/**
+ * Customer edits own profile. Only safe fields — cannot change phone, status, assignedSalesperson.
+ */
+const updateMyProfile = async (userId, patch) => {
+    const profile = await CustomerProfile.findOne({ user: userId });
+    if (!profile) throw new BusinessError("Customer profile not found.", 404);
+
+    const allowed = [
+        "businessName", "businessType", "address", "city", "state", "pincode", "alternatePhoneNumber"
+    ];
+    const changes = {};
+    for (const k of allowed) {
+        if (patch[k] !== undefined && patch[k] !== null) changes[k] = patch[k];
+    }
+    Object.assign(profile, changes);
+    await profile.save();
+
+    // If Name was provided, update the linked user
+    if (patch.Name) {
+        const user = await User.findById(userId);
+        if (user) { user.Name = patch.Name; await user.save(); }
+    }
+
+    await profile.populate({ path: "user", select: "Name phoneNumber status role" });
+    await profile.populate({ path: "assignedSalesperson", select: "Name email phoneNumber" });
+
+    return {
+        success: true,
+        message: "Profile updated.",
+        customer: buildAdminCustomerProfile(profile)
+    };
+};
+
 module.exports = {
 
     getCustomers,
@@ -199,6 +232,8 @@ module.exports = {
 
     getMyCustomers,
 
-    removeCustomer
+    removeCustomer,
+
+    updateMyProfile
 
 };

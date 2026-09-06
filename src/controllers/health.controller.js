@@ -4,7 +4,7 @@ const healthCheck = (req, res) => {
 
         success: true,
 
-        message: "🚀 CRM Backend is Running"
+        message: "🚀 BR Corporation Backend is Running"
 
     });
 

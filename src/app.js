@@ -22,6 +22,8 @@ const adminDashboardRoutes = require("./routes/adminDashboard.routes");
 const customerDashboardRoutes = require("./routes/customerDashboard.routes");
 const notificationRoutes = require("./routes/notification.routes");
 const reportRoutes = require("./routes/report.routes");
+const messageRoutes = require("./routes/message.routes");
+const quotationRequestRoutes = require("./routes/quotationRequest.routes");
 const BusinessError = require("./utils/errors/businessError");
 
 const app = express();
@@ -71,6 +73,8 @@ app.use("/api/dashboard/customer", customerDashboardRoutes);
 app.use("/api/dashboard/salesperson", salespersonDashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api/quotation-requests", quotationRequestRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 const notFound = require("./middlewares/notFound.middleware");
