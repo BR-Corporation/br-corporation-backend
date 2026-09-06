@@ -475,7 +475,9 @@ const getInventoryMovements = async (productId) => {
 
     }
 
-    const movements = await InventoryMovement.findByProduct(productId);
+    const movements = await InventoryMovement.find({ product: productId })
+        .sort({ createdAt: -1 })
+        .populate({ path: "performedBy", select: "Name role email" });
 
     return {
 
@@ -485,7 +487,13 @@ const getInventoryMovements = async (productId) => {
 
         productName: product.name,
 
+        productSKU: product.SKU,
+
         currentStock: product.stock,
+
+        minimumStock: product.minimumStock,
+
+        stockStatus: product.stockStatus,
 
         movements: buildInventoryMovementList(movements)
 

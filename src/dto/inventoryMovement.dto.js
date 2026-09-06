@@ -6,6 +6,12 @@ const buildInventoryMovement = (movement) => {
 
     if (!movement) return null;
 
+    // performedBy may be a populated User document OR a raw ObjectId
+    const perf = movement.performedBy;
+    const performedBy = perf && perf._id
+        ? { id: perf._id, Name: perf.Name, role: perf.role, email: perf.email }
+        : perf;
+
     return {
 
         id: movement._id,
@@ -20,7 +26,7 @@ const buildInventoryMovement = (movement) => {
 
         newStock: movement.newStock,
 
-        performedBy: movement.performedBy,
+        performedBy,
 
         reason: movement.reason,
 
