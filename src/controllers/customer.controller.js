@@ -1,4 +1,5 @@
 const customerService = require("../services/customer.service");
+const authService = require("../services/auth.service");
 const getCustomers = async (req, res, next) => {
 
     try {
@@ -88,6 +89,15 @@ const removeCustomer = async (req, res, next) => {
     }
 
 };
+const hardDeleteCustomer = async (req, res, next) => {
+    try {
+        const result = await authService.hardDeleteCustomer(req.params.customerProfileId);
+        return res.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
 
     getCustomers,
@@ -96,6 +106,8 @@ module.exports = {
 
     getMyCustomers,
 
-    removeCustomer
+    removeCustomer,
+
+    hardDeleteCustomer
 
 };

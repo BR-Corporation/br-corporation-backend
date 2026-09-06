@@ -476,6 +476,62 @@ const getOrderPayments = async (orderId, loggedInUser) => {
 
 };
 
+/**
+ * Delete a payment entry. Reverses the outstanding + payment status of the
+ * parent order and reduces the customer's collected metrics.
+ * Admin-only.
+ */
+const deletePayment = async (paymentId, loggedInUser) => {
+    const payment = await Payment.findById(paymentId);
+    if (!payment) {
+        throw new BusinessError("Payment not found.", 404);
+    }
+
+    const orderId = payment.order;
+    const amount = payment.amount || 0;
+
+    // Restore outstanding on the order and re-derive paymentStatus
+    const order = await Order.findById(orderId);
+    if (order) {
+        const otherPayments = await Payment.find({ order: orderId, _id: { $ne: paymentId } });
+        const totalPaid = otherPayments.reduce((s, p) => s + (p.amount || 0), 0);
+        const newOutstanding = roundToTwo(Math.max(0, order.grandTotal - totalPaid));
+        if (totalPaid <= 0) order.paymentStatus = "pending";
+        else if (newOutstanding <= 0) order.paymentStatus = "paid";
+        else order.paymentStatus = "partial";
+        await order.save();
+
+        // Restore customer's outstanding total by adding this payment back
+        const cp = await CustomerProfile.findById(order.customerProfile);
+        if (cp) {
+            cp.outstandingAmount = roundToTwo((cp.outstandingAmount || 0) + amount);
+            await cp.save();
+        }
+    }
+
+    await payment.deleteOne();
+
+    // Log activity
+    if (order) {
+        try {
+            await createInternalActivity({
+                customerProfileId: order.customerProfile,
+                createdBy: loggedInUser._id,
+                activityType: "order",
+                title: "Payment entry deleted",
+                description: `Admin removed a payment of ₹${amount} from Order #${orderId}.`,
+                metadata: { orderId, paymentId, amount }
+            });
+        } catch (_) { /* non-fatal */ }
+    }
+
+    return {
+        success: true,
+        message: "Payment deleted and order/customer totals reversed.",
+        removedAmount: amount
+    };
+};
+
 module.exports = {
 
     createPayment,
@@ -486,6 +542,8 @@ module.exports = {
 
     getOrderPayments,
 
-    calculateOrderOutstanding
+    calculateOrderOutstanding,
+
+    deletePayment
 
 };

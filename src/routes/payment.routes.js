@@ -57,4 +57,15 @@ router.get(
     paymentController.getOrderPayments
 );
 
+// ----------------------------
+// Delete Payment (Admin only) — reverses order + customer totals
+// ----------------------------
+
+router.delete(
+    "/:paymentId",
+    authenticate,
+    authorize("admin"),
+    paymentController.deletePayment
+);
+
 module.exports = router;

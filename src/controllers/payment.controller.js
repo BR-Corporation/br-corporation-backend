@@ -90,6 +90,15 @@ const getOrderPayments = async (req, res, next) => {
 
 };
 
+const deletePayment = async (req, res, next) => {
+    try {
+        const result = await paymentService.deletePayment(req.params.paymentId, req.user);
+        return res.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
 
     createPayment,
@@ -98,6 +107,8 @@ module.exports = {
 
     getCustomerPayments,
 
-    getOrderPayments
+    getOrderPayments,
+
+    deletePayment
 
 };

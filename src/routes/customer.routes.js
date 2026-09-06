@@ -38,4 +38,11 @@ router.patch(
     customerController.removeCustomer
 );
 
+router.delete(
+    "/:customerProfileId",
+    authenticate,
+    authorize("admin"),
+    customerController.hardDeleteCustomer
+);
+
 module.exports = router;

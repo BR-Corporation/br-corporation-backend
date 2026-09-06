@@ -149,6 +149,15 @@ router.get(
     authController.getEmployeeActivity
 );
 
+router.delete(
+    "/admin/employees/:employeeId",
+    authenticate,
+    authorize("admin"),
+    removeEmployeeValidator,
+    validate,
+    authController.hardDeleteEmployee
+);
+
 router.patch(
     "/admin/employees/:employeeId/reactivate",
     authenticate,

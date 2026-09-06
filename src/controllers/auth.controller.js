@@ -186,6 +186,15 @@ const getEmployeeActivity = async (req, res, next) => {
     }
 };
 
+const hardDeleteEmployee = async (req, res, next) => {
+    try {
+        const result = await authService.hardDeleteEmployee(req.params.employeeId, req.user._id);
+        return res.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
 const adminMarkCustomerOtpVerified = async (req, res, next) => {
     try {
         const { phoneNumber, enable } = req.body;
@@ -392,6 +401,8 @@ module.exports = {
 
     getEmployeeActivity,
 
-    adminMarkCustomerOtpVerified
+    adminMarkCustomerOtpVerified,
+
+    hardDeleteEmployee
 
 };

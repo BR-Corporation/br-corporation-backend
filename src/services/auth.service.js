@@ -582,6 +582,66 @@ const adminMarkCustomerOtpVerified = async (phoneNumber, enable = true) => {
     };
 };
 
+/**
+ * Hard-delete an employee. Refuses if they still own assigned customers,
+ * unpaid workload etc. Admin-only. This removes the User document entirely.
+ */
+const hardDeleteEmployee = async (employeeId, requesterId) => {
+    const employee = await User.findById(employeeId);
+    if (!employee) throw new BusinessError("Employee not found.", 404);
+    if (employee.role === "customer") throw new BusinessError("Selected user is not an employee.", 400);
+    if (employee._id.toString() === requesterId.toString()) {
+        throw new BusinessError("You cannot delete your own account.", 400);
+    }
+    const adminCount = await User.countDocuments({ role: "admin", status: { $ne: "suspended" } });
+    if (employee.role === "admin" && adminCount <= 1) {
+        throw new BusinessError("Cannot delete the last active admin.", 400);
+    }
+    const assignedCustomers = await CustomerProfile.countDocuments({ assignedSalesperson: employeeId });
+    if (assignedCustomers > 0) {
+        throw new BusinessError(
+            `Cannot delete: ${assignedCustomers} customer(s) still assigned. Reassign them first.`,
+            400
+        );
+    }
+    await User.deleteOne({ _id: employeeId });
+    return { success: true, message: `Employee ${employee.Name} deleted.` };
+};
+
+/**
+ * Hard-delete a customer. Refuses if there are orders / payments in the DB
+ * to protect financial history. Admin-only.
+ */
+const hardDeleteCustomer = async (customerProfileId) => {
+    const Order = require("../models/order.model");
+    const Payment = require("../models/payment.model");
+    const CustomerActivity = require("../models/customerActivity.model");
+    const FollowUp = require("../models/followUp.model");
+    const Quotation = require("../models/quotation.model");
+
+    const profile = await CustomerProfile.findById(customerProfileId);
+    if (!profile) throw new BusinessError("Customer not found.", 404);
+    const user = await User.findById(profile.user);
+
+    const orderCount = await Order.countDocuments({ customerProfile: customerProfileId });
+    const paymentCount = await Payment.countDocuments({ customerProfile: customerProfileId });
+    if (orderCount > 0 || paymentCount > 0) {
+        throw new BusinessError(
+            `Cannot delete: this customer has ${orderCount} order(s) and ${paymentCount} payment(s) on record. Suspend the account instead.`,
+            400
+        );
+    }
+
+    // Safe to delete: no financial history. Remove activities, follow-ups, quotations, profile, user.
+    await CustomerActivity.deleteMany({ customerProfile: customerProfileId });
+    await FollowUp.deleteMany({ customerProfile: customerProfileId });
+    await Quotation.deleteMany({ customerProfile: customerProfileId });
+    await CustomerProfile.deleteOne({ _id: customerProfileId });
+    if (user) await User.deleteOne({ _id: user._id });
+
+    return { success: true, message: `Customer ${user?.Name || ''} deleted permanently.` };
+};
+
 const cleanupGhostCustomerUsers = async () => {
     // 1. Customer Users without a CustomerProfile
     const customerUsers = await User.find({ role: "customer" }).select("_id Name phoneNumber");
@@ -879,5 +939,7 @@ module.exports = {
     updateCustomerStatus,
     cleanupGhostCustomerUsers,
     getEmployeeActivity,
-    adminMarkCustomerOtpVerified
+    adminMarkCustomerOtpVerified,
+    hardDeleteEmployee,
+    hardDeleteCustomer
 }
