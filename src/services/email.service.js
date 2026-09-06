@@ -1,17 +1,43 @@
 const nodemailer = require("nodemailer");
 
-const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    // Aggressive timeouts so a broken SMTP doesn't hang the API for 90+ sec.
-    // Free Render + Gmail from outside your usual IP sometimes stalls silently.
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 8000,
-});
+/**
+ * Email transporter with fallback:
+ *   1. Brevo (transactional) when BREVO_SMTP_USER + BREVO_SMTP_KEY are set
+ *   2. Gmail SMTP otherwise
+ *
+ * Gmail is unreliable from cloud hosts (connection timeouts). Brevo is
+ * designed for transactional email and works from any IP.
+ */
+const useBrevo = !!(process.env.BREVO_SMTP_USER && process.env.BREVO_SMTP_KEY);
+
+const transporter = useBrevo
+    ? nodemailer.createTransport({
+        host: "smtp-relay.brevo.com",
+        port: 587,
+        secure: false,
+        auth: {
+            user: process.env.BREVO_SMTP_USER,
+            pass: process.env.BREVO_SMTP_KEY,
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+    })
+    : nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 8000,
+    });
+
+// The "From" address the recipient sees.
+// Brevo requires this to be a verified sender (your account signup email is verified by default).
+const FROM_EMAIL = process.env.EMAIL_FROM || process.env.EMAIL_USER || process.env.BREVO_SMTP_USER;
+const FROM_NAME = "BR Corporation";
 
 const sendEmployeeWelcomeEmail = async ({
     Name,
@@ -20,7 +46,7 @@ const sendEmployeeWelcomeEmail = async ({
 }) => {
 
     const mailOptions = {
-        from: `"BR Corporation" <${process.env.EMAIL_USER}>`,
+        from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
         to: email,
         subject: "Welcome to BR Corporation",
 
@@ -131,9 +157,9 @@ const sendEmployeeWelcomeEmail = async ({
 const testEmailConnection = async () => {
     try {
         await transporter.verify();
-        console.log("✅ Gmail SMTP connected successfully.");
+        console.log(`✅ ${useBrevo ? "Brevo" : "Gmail"} SMTP connected successfully.`);
     } catch (error) {
-        console.error("❌ Gmail SMTP connection failed.");
+        console.error(`❌ ${useBrevo ? "Brevo" : "Gmail"} SMTP connection failed.`);
         console.error(error);
     }
 };
