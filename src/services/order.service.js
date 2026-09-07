@@ -223,9 +223,9 @@ const createOrder = async (orderData, loggedInUser) => {
 
             unitPrice: product.sellingPrice,
 
-            discount: item.discount || 0,
+            discount: item.discount != null ? item.discount : 0,
 
-            tax: item.tax || 0
+            tax: item.tax != null ? item.tax : (product.tax || 0)
 
         });
 
