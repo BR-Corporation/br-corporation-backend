@@ -785,8 +785,8 @@ const getEmployeeActivity = async (employeeId) => {
             .limit(50),
         Payment.find({ createdBy: employeeId })
             .populate({ path: "customerProfile", select: "businessName" })
-            .populate({ path: "orderId", select: "grandTotal" })
-            .select("amount paymentMethod paymentDate transactionReference customerProfile orderId createdAt")
+            .populate({ path: "order", select: "grandTotal" })
+            .select("amount paymentMethod paymentDate transactionReference customerProfile order createdAt")
             .sort("-createdAt")
             .limit(50),
         FollowUp.find({ createdBy: employeeId })
@@ -877,7 +877,7 @@ const getEmployeeActivity = async (employeeId) => {
             paymentMethod: p.paymentMethod,
             paymentDate: p.paymentDate,
             transactionReference: p.transactionReference,
-            orderId: p.orderId?._id || p.orderId,
+            orderId: p.order?._id || p.order,
             createdAt: p.createdAt
         })),
         followUps: followUps.map((f) => ({
