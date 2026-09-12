@@ -51,6 +51,10 @@ const getCustomers = async (query, loggedInUser) => {
 
         filter._id = { $in: customerProfiles.map(cp => cp._id) };
 
+    } else if (loggedInUser.role === "salesperson") {
+
+        filter.assignedSalesperson = loggedInUser._id;
+
     }
 
     let totalCustomers;

@@ -278,38 +278,39 @@ const updateProduct = async (productId, updateData, loggedInUser, imageFile) => 
 
     ]);
 
-    if (product.stock <= product.minimumStock) {
-
-        const adminsAndManagers = await User.find({
-
-            role: { $in: ["admin", "manager"] }
-
-        }).select("_id");
-
-        for (const user of adminsAndManagers) {
-
-            await createNotification({
-
-                recipient: user._id,
-
-                type: "low_stock",
-
-                title: "Low Stock Alert",
-
-                message: `Product ${product.name} (SKU: ${product.SKU}) is running low on stock. Current stock: ${product.stock}, Minimum stock: ${product.minimumStock}.`,
-
-                referenceEntity: "product",
-
-                referenceId: product._id
-
-            });
-
-        }
-
-    }
+    await notifyIfLowStock(product);
 
     return buildProductDetail(product);
 
+};
+
+const notifyIfLowStock = async (product) => {
+    if (!product || typeof product.stock !== "number") return;
+    if (product.stock > (product.minimumStock || 0)) return;
+
+    try {
+        const adminsAndManagers = await User.find({
+            role: { $in: ["admin", "manager"] },
+            status: { $ne: "suspended" }
+        }).select("_id");
+
+        const isOut = product.stock === 0;
+        const title = isOut ? "Out of stock" : "Low stock alert";
+        const message = isOut
+            ? `Product ${product.name} (SKU: ${product.SKU}) is OUT OF STOCK.`
+            : `Product ${product.name} (SKU: ${product.SKU}) is low. Stock: ${product.stock} / min: ${product.minimumStock}.`;
+
+        for (const user of adminsAndManagers) {
+            await createNotification({
+                recipient: user._id,
+                type: "low_stock",
+                title,
+                message,
+                referenceEntity: "product",
+                referenceId: product._id
+            });
+        }
+    } catch (_) { /* notification failures shouldn't break stock flow */ }
 };
 
 // ----------------------------
@@ -389,6 +390,10 @@ const adjustStock = async (productId, adjustmentData, loggedInUser) => {
     });
 
     await movement.populate({ path: "performedBy", select: "Name email" });
+
+    if (newStock < previousStock) {
+        await notifyIfLowStock(product);
+    }
 
     return {
 
@@ -517,6 +522,8 @@ module.exports = {
 
     deleteProduct,
 
-    updateProductStatus
+    updateProductStatus,
+
+    notifyIfLowStock
 
 };

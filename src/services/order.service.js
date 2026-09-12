@@ -16,6 +16,8 @@ const {
     createInternalActivity
 } = require("./customerActivity.service");
 
+const { notifyIfLowStock } = require("./product.service");
+
 const {
     createNotification
 } = require("./notification.service");
@@ -301,6 +303,8 @@ const createOrder = async (orderData, loggedInUser) => {
             reference: order._id.toString()
 
         });
+
+        await notifyIfLowStock(product);
 
     }
 
