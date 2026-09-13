@@ -6,6 +6,7 @@ const Order = require("../models/order.model");
 const Payment = require("../models/payment.model");
 const Product = require("../models/product.model");
 const InventoryMovement = require("../models/inventoryMovement.model");
+const OrderReturn = require("../models/orderReturn.model");
 const BusinessError = require("../utils/errors/businessError");
 
 const { buildAdminDashboard } = require("../dto/adminDashboard.dto");
@@ -387,7 +388,13 @@ const getAdminDashboard = async (loggedInUser, query = {}) => {
     // Finance Metrics
     // ----------------------------
 
-    const totalRevenue = totalSales;
+    const completedReturns = await OrderReturn.find({ status: "completed" }).select("items");
+
+    const returnedAmount = roundToTwo(
+        completedReturns.reduce((sum, r) => sum + r.items.reduce((s, i) => s + (i.lineTotal || 0), 0), 0)
+    );
+
+    const totalRevenue = roundToTwo(Math.max(0, totalSales - returnedAmount));
 
     const paymentFilter = {};
 
@@ -397,7 +404,11 @@ const getAdminDashboard = async (loggedInUser, query = {}) => {
 
     const payments = await Payment.find(paymentFilter);
 
-    const paymentsCollected = roundToTwo(payments.reduce((sum, p) => sum + p.amount, 0));
+    const paymentsCollected = roundToTwo(payments.reduce((sum, p) =>
+        sum + (p.type === "refund" ? -p.amount : p.amount), 0));
+
+    const refundsIssued = roundToTwo(payments.reduce((sum, p) =>
+        sum + (p.type === "refund" ? p.amount : 0), 0));
 
     const allOrders = await Order.find({ orderStatus: { $nin: ["cancelled"] } }).select("grandTotal paymentStatus");
 

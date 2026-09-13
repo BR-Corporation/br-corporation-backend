@@ -40,7 +40,11 @@ const calculateOrderOutstanding = async (orderId) => {
 
     const payments = await Payment.find({ order: orderId });
 
-    const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const totalPaid = payments.reduce((sum, p) =>
+        sum + (p.type === "refund" ? -p.amount : p.amount), 0);
+
+    const totalRefunded = payments.reduce((sum, p) =>
+        sum + (p.type === "refund" ? p.amount : 0), 0);
 
     const outstanding = roundToTwo(order.grandTotal - totalPaid);
 
@@ -49,6 +53,8 @@ const calculateOrderOutstanding = async (orderId) => {
         grandTotal: order.grandTotal,
 
         totalPaid: roundToTwo(totalPaid),
+
+        totalRefunded: roundToTwo(totalRefunded),
 
         outstanding: outstanding > 0 ? outstanding : 0
 
@@ -532,9 +538,87 @@ const deletePayment = async (paymentId, loggedInUser) => {
     };
 };
 
+// ----------------------------
+// Record Refund (admin-only)
+// ----------------------------
+
+const recordRefund = async (refundData, loggedInUser) => {
+
+    if (loggedInUser.role !== "admin") {
+        throw new BusinessError("Only admin can record refunds.", 403);
+    }
+
+    const { orderId, amount, paymentMethod, paymentDate, transactionReference, notes, orderReturnId } = refundData;
+
+    const order = await Order.findById(orderId)
+        .populate({ path: "customerProfile", select: "user businessName" });
+
+    if (!order) throw new BusinessError("Order not found.", 404);
+
+    const refundAmount = roundToTwo(amount);
+    if (!refundAmount || refundAmount <= 0) {
+        throw new BusinessError("Refund amount must be greater than 0.", 400);
+    }
+
+    const totals = await calculateOrderOutstanding(orderId);
+    const alreadyPaidNet = totals.totalPaid;
+    if (refundAmount > alreadyPaidNet) {
+        throw new BusinessError(
+            `Refund exceeds paid amount. Net paid so far: ₹${alreadyPaidNet}.`,
+            400
+        );
+    }
+
+    const payment = await Payment.create({
+        customerProfile: order.customerProfile._id,
+        order: order._id,
+        amount: refundAmount,
+        paymentMethod,
+        paymentDate: paymentDate || new Date(),
+        transactionReference: transactionReference || "",
+        notes: notes || "",
+        type: "refund",
+        orderReturn: orderReturnId || null,
+        createdBy: loggedInUser._id
+    });
+
+    // Recompute payment status on the order
+    const after = await calculateOrderOutstanding(order._id);
+    if (after.totalPaid <= 0) order.paymentStatus = "pending";
+    else if (after.outstanding <= 0) order.paymentStatus = "paid";
+    else order.paymentStatus = "partial";
+    await order.save();
+
+    try {
+        await createNotification({
+            recipient: order.customerProfile.user,
+            type: "payment_refunded",
+            title: "Refund issued",
+            message: `A refund of ₹${refundAmount} has been issued for order #${String(order._id).slice(-6)}.`,
+            referenceEntity: "payment",
+            referenceId: payment._id
+        });
+    } catch (_) {}
+
+    try {
+        await createInternalActivity({
+            customerProfileId: order.customerProfile._id,
+            createdBy: loggedInUser._id,
+            activityType: "payment",
+            title: "Refund Issued",
+            description: `Refund ₹${refundAmount} via ${paymentMethod} for order #${String(order._id).slice(-6)}.`,
+            metadata: { orderId: order._id, refundAmount, paymentMethod }
+        });
+    } catch (_) {}
+
+    return { success: true, message: "Refund recorded successfully.", payment: buildPayment(payment) };
+};
+
 module.exports = {
 
     createPayment,
+
+    recordRefund,
 
     getPayments,
 

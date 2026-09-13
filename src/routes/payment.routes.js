@@ -25,6 +25,13 @@ router.post(
     paymentController.createPayment
 );
 
+router.post(
+    "/refund",
+    authenticate,
+    authorize("admin"),
+    paymentController.recordRefund
+);
+
 // ----------------------------
 // Get Payments (All authenticated roles)
 // ----------------------------

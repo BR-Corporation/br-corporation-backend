@@ -26,6 +26,10 @@ const buildPayment = (payment) => {
 
         createdBy: payment.createdBy,
 
+        type: payment.type || "payment",
+
+        orderReturn: payment.orderReturn || null,
+
         createdAt: payment.createdAt,
 
         updatedAt: payment.updatedAt
@@ -65,6 +69,8 @@ const buildPaymentSummary = (payment) => {
         paymentDate: payment.paymentDate,
 
         transactionReference: payment.transactionReference,
+
+        type: payment.type || "payment",
 
         createdAt: payment.createdAt
 

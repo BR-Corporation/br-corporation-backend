@@ -27,6 +27,22 @@ const paymentSchema = new mongoose.Schema(
             required: [true, "Payment method is required."]
         },
 
+        // "payment" = money in (customer pays us).
+        // "refund"  = money out (we return money after a return/cancel).
+        // Amount stays positive; aggregations subtract refunds.
+        type: {
+            type: String,
+            enum: ["payment", "refund"],
+            default: "payment",
+            index: true
+        },
+
+        orderReturn: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "OrderReturn",
+            default: null
+        },
+
         paymentDate: {
             type: Date,
             required: [true, "Payment date is required."],

@@ -99,9 +99,20 @@ const deletePayment = async (req, res, next) => {
     }
 };
 
+const recordRefund = async (req, res, next) => {
+    try {
+        const result = await paymentService.recordRefund(req.body, req.user);
+        return res.status(201).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
 
     createPayment,
+
+    recordRefund,
 
     getPayments,
 
