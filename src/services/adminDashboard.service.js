@@ -532,6 +532,14 @@ const getAdminDashboard = async (loggedInUser, query = {}) => {
 
         totalRevenue,
 
+        totalSales,
+
+        returnedAmount,
+
+        refundsIssued,
+
+        refundPending: roundToTwo(Math.max(0, returnedAmount - refundsIssued)),
+
         paymentsCollected,
 
         outstandingAmount,

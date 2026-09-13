@@ -84,6 +84,14 @@ const buildAdminDashboard = (dashboard) => {
 
             totalRevenue: dashboard.totalRevenue,
 
+            totalSales: dashboard.totalSales,
+
+            returnedAmount: dashboard.returnedAmount,
+
+            refundsIssued: dashboard.refundsIssued,
+
+            refundPending: dashboard.refundPending,
+
             paymentsCollected: dashboard.paymentsCollected,
 
             outstandingAmount: dashboard.outstandingAmount,
