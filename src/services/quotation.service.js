@@ -192,6 +192,11 @@ const createQuotation = async (quotationData, loggedInUser) => {
 
     const totals = calculateQuotationTotals(validatedItems);
 
+    // If this quotation answers a customer-submitted quotation request,
+    // send it straight to the customer instead of parking it in draft —
+    // the whole point of quoting the request is to let them decide.
+    const initialStatus = quotationRequestId ? "sent" : "draft";
+
     const quotation = await Quotation.create({
 
         customerProfile: customerProfileId,
@@ -202,7 +207,7 @@ const createQuotation = async (quotationData, loggedInUser) => {
 
         ...totals,
 
-        status: "draft",
+        status: initialStatus,
 
         validUntil: validUntil || null,
 
