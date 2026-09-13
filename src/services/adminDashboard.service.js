@@ -311,7 +311,9 @@ const getAdminDashboard = async (loggedInUser, query = {}) => {
 
     const lowStockProducts = await Product.countDocuments({
 
-        stock: { $gt: 0, $lte: 10 }
+        stock: { $gt: 0 },
+
+        $expr: { $lte: ["$stock", "$minimumStock"] }
 
     });
 

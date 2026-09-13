@@ -405,7 +405,12 @@ const getInventoryReport = async (loggedInUser, query = {}) => {
 
     const totalProducts = await Product.countDocuments({});
 
-    const lowStockProducts = await Product.find({ stock: { $gt: 0, $lte: 10 } })
+    // Low stock = stock <= product's own minimumStock (per-product threshold),
+    // matching how the inventory page and low_stock notifications compute it.
+    const lowStockProducts = await Product.find({
+        stock: { $gt: 0 },
+        $expr: { $lte: ["$stock", "$minimumStock"] }
+    })
         .select("name SKU stock minimumStock")
         .sort({ stock: 1 });
 
