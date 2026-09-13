@@ -23,4 +23,19 @@ const listThreads = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
-module.exports = { sendMessage, getThread, listThreads };
+const listAllConversations = async (req, res, next) => {
+    try {
+        const result = await messageService.listAllConversations();
+        return res.status(200).json(result);
+    } catch (error) { next(error); }
+};
+
+const getAnyThread = async (req, res, next) => {
+    try {
+        const { userAId, userBId } = req.params;
+        const result = await messageService.getAnyThread(userAId, userBId);
+        return res.status(200).json(result);
+    } catch (error) { next(error); }
+};
+
+module.exports = { sendMessage, getThread, listThreads, listAllConversations, getAnyThread };

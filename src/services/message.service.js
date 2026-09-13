@@ -155,4 +155,73 @@ const listThreads = async (currentUser) => {
     };
 };
 
-module.exports = { sendMessage, getThread, listThreads };
+/**
+ * ADMIN OVERSIGHT: list every unique two-user conversation across the org,
+ * with last message + total + unread-to-customer counts. Salesperson↔customer
+ * pairs bubble up; admin↔anything also shows.
+ */
+const listAllConversations = async () => {
+    const msgs = await Message.find({}).sort("-createdAt").limit(5000).lean();
+
+    // Bucket by unordered pair "aId::bId" (sorted so both directions collapse into one row)
+    const bucket = new Map();
+    const userIds = new Set();
+    for (const m of msgs) {
+        const a = m.from.toString();
+        const b = m.to.toString();
+        userIds.add(a); userIds.add(b);
+        const [x, y] = [a, b].sort();
+        const key = `${x}::${y}`;
+        if (!bucket.has(key)) bucket.set(key, { userA: x, userB: y, lastMessage: m, count: 0, unread: 0 });
+        const entry = bucket.get(key);
+        entry.count += 1;
+        if (!m.readAt) entry.unread += 1;
+    }
+
+    const users = userIds.size
+        ? await User.find({ _id: { $in: Array.from(userIds) } }).select("Name role")
+        : [];
+    const byId = new Map(users.map((u) => [u._id.toString(), u]));
+
+    const conversations = Array.from(bucket.values()).map((c) => ({
+        userA: { id: c.userA, Name: byId.get(c.userA)?.Name || "Unknown", role: byId.get(c.userA)?.role || null },
+        userB: { id: c.userB, Name: byId.get(c.userB)?.Name || "Unknown", role: byId.get(c.userB)?.role || null },
+        lastMessage: { text: c.lastMessage.text, createdAt: c.lastMessage.createdAt, fromId: c.lastMessage.from.toString() },
+        totalMessages: c.count,
+        unread: c.unread,
+    })).sort((a, b) => new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt));
+
+    return { success: true, conversations };
+};
+
+/**
+ * ADMIN: read any two-user thread — no relationship check.
+ */
+const getAnyThread = async (userAId, userBId) => {
+    const messages = await Message.find({
+        $or: [
+            { from: userAId, to: userBId },
+            { from: userBId, to: userAId },
+        ],
+    }).sort("createdAt").limit(1000);
+
+    const users = await User.find({ _id: { $in: [userAId, userBId] } })
+        .select("Name role phoneNumber email");
+    const byId = new Map(users.map((u) => [u._id.toString(), u]));
+
+    return {
+        success: true,
+        userA: byId.get(userAId) ? { id: userAId, ...byId.get(userAId).toObject() } : { id: userAId },
+        userB: byId.get(userBId) ? { id: userBId, ...byId.get(userBId).toObject() } : { id: userBId },
+        messages: messages.map((m) => ({
+            id: m._id,
+            from: m.from,
+            to: m.to,
+            text: m.text,
+            createdAt: m.createdAt,
+            readAt: m.readAt,
+        })),
+    };
+};
+
+module.exports = { sendMessage, getThread, listThreads, listAllConversations, getAnyThread };
