@@ -718,7 +718,22 @@ const updateQuotationStatus = async (quotationId, newStatus, loggedInUser) => {
 
     }
 
-    return buildQuotationDetail(quotation);
+    // Customer accepted → auto-convert to an order at quoted prices so
+    // the deal is locked in without waiting for the salesperson.
+    let autoOrder = null;
+    if (newStatus === "accepted" && loggedInUser.role === "customer") {
+        try {
+            const result = await convertQuotationToOrder(quotation._id, loggedInUser);
+            autoOrder = result.order;
+        } catch (err) {
+            // Log but don't fail the accept — salesperson can still convert manually.
+            console.error("Auto-convert on accept failed:", err.message);
+        }
+    }
+
+    const detail = buildQuotationDetail(quotation);
+    if (autoOrder) detail.order = autoOrder;
+    return detail;
 
 };
 
@@ -878,6 +893,7 @@ const convertQuotationToOrder = async (quotationId, loggedInUser, options = {}) 
             items: quotation.items.map((it) => ({
                 product: it.product.toString(),
                 quantity: it.quantity,
+                unitPrice: it.unitPrice,
                 discount: it.discount,
                 tax: it.tax
             })),

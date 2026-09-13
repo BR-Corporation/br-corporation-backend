@@ -223,7 +223,7 @@ const createOrder = async (orderData, loggedInUser) => {
 
             quantity: item.quantity,
 
-            unitPrice: product.sellingPrice,
+            unitPrice: item.unitPrice != null ? item.unitPrice : product.sellingPrice,
 
             discount: item.discount != null ? item.discount : 0,
 
