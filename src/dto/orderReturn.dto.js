@@ -66,6 +66,10 @@ const buildOrderReturnSummary = (orderReturn) => {
 
     if (!orderReturn) return null;
 
+    const items = (orderReturn.items || []).map(buildOrderReturnItem);
+
+    const totalValue = items.reduce((s, i) => s + (i.lineTotal || 0), 0);
+
     return {
 
         id: orderReturn._id,
@@ -73,6 +77,10 @@ const buildOrderReturnSummary = (orderReturn) => {
         orderId: orderReturn.order,
 
         customerProfileId: orderReturn.customerProfile,
+
+        items,
+
+        totalValue,
 
         returnType: orderReturn.returnType,
 
