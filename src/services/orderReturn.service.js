@@ -17,7 +17,8 @@ const {
 } = require("./customerActivity.service");
 
 const {
-    createNotification
+    createNotification,
+    notifyAllAdmins
 } = require("./notification.service");
 
 // ----------------------------
@@ -195,6 +196,15 @@ const createOrderReturn = async (returnData, loggedInUser) => {
 
         }
 
+    });
+
+    // Alert every admin so a filed return shows up on the admin dashboard immediately.
+    await notifyAllAdmins({
+        type: "return_created",
+        title: "New return request",
+        message: `${orderReturn.customerProfile?.businessName || "Customer"} filed a ${isFullReturn ? "full" : "partial"} return on order #${String(orderId).slice(-6)}.`,
+        referenceEntity: "OrderReturn",
+        referenceId: orderReturn._id
     });
 
     return buildOrderReturnDetail(orderReturn);

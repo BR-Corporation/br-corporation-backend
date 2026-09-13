@@ -19,7 +19,8 @@ const {
 const { notifyIfLowStock } = require("./product.service");
 
 const {
-    createNotification
+    createNotification,
+    notifyAllAdmins
 } = require("./notification.service");
 
 const {
@@ -359,6 +360,15 @@ const createOrder = async (orderData, loggedInUser) => {
             });
         } catch (e) { /* non-fatal */ }
     }
+
+    // Notify every admin so the admin dashboard surfaces new business regardless of who created it.
+    await notifyAllAdmins({
+        type: "order_created",
+        title: "New order",
+        message: `${customerProfile.businessName} — ₹${totals.grandTotal.toLocaleString()} (${loggedInUser.role})`,
+        referenceEntity: "Order",
+        referenceId: order._id
+    });
 
     return buildOrderDetail(order);
 

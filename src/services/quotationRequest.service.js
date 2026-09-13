@@ -3,7 +3,7 @@ const CustomerProfile = require("../models/customerProfile.model");
 const Product = require("../models/product.model");
 const User = require("../models/user.model");
 const BusinessError = require("../utils/errors/businessError");
-const { createNotification } = require("./notification.service");
+const { createNotification, notifyAllAdmins } = require("./notification.service");
 const { createInternalActivity } = require("./customerActivity.service");
 
 /** Customer creates a quotation request for their own account. */
@@ -58,6 +58,15 @@ const createRequest = async ({ customerProfileId, items, notes }, loggedInUser) 
             referenceId: request._id,
         });
     } catch (_) {}
+
+    // Also notify admins so they can jump in from the dashboard.
+    await notifyAllAdmins({
+        type: "quotation_requested",
+        title: "New quotation request",
+        message: `${profile.businessName} asked for a quotation on ${enriched.length} item(s).`,
+        referenceEntity: "QuotationRequest",
+        referenceId: request._id
+    });
 
     try {
         await createInternalActivity({
