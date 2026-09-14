@@ -3,6 +3,7 @@ const FollowUp = require("../models/followUp.model");
 const Quotation = require("../models/quotation.model");
 const Order = require("../models/order.model");
 const Payment = require("../models/payment.model");
+const OrderReturn = require("../models/orderReturn.model");
 const BusinessError = require("../utils/errors/businessError");
 
 const {
@@ -177,9 +178,25 @@ const getSalespersonPerformance = async (salespersonId, loggedInUser, query = {}
 
     });
 
-    const orders = await Order.find(orderFilter).select("grandTotal");
+    const orders = await Order.find(orderFilter).select("_id grandTotal");
 
-    const totalSales = roundToTwo(orders.reduce((sum, order) => sum + order.grandTotal, 0));
+    const grossSales = roundToTwo(orders.reduce((sum, order) => sum + order.grandTotal, 0));
+
+    // Subtract completed returns against this salesperson's orders so the
+    // performance number reflects what actually stuck as revenue.
+    const orderIds = orders.map((o) => o._id);
+    const completedReturns = await OrderReturn.find({
+        order: { $in: orderIds },
+        status: "completed"
+    }).select("items");
+
+    const returnedAmount = roundToTwo(
+        completedReturns.reduce(
+            (s, r) => s + r.items.reduce((a, i) => a + (i.lineTotal || 0), 0), 0
+        )
+    );
+
+    const totalSales = roundToTwo(Math.max(0, grossSales - returnedAmount));
 
     const averageOrderValue = totalOrders > 0 ? roundToTwo(totalSales / totalOrders) : 0;
 
@@ -202,7 +219,8 @@ const getSalespersonPerformance = async (salespersonId, loggedInUser, query = {}
 
     const payments = await Payment.find(paymentFilter);
 
-    const totalPaymentsCollected = roundToTwo(payments.reduce((sum, payment) => sum + payment.amount, 0));
+    const totalPaymentsCollected = roundToTwo(payments.reduce((sum, p) =>
+        sum + (p.type === "refund" ? -p.amount : p.amount), 0));
 
     const ordersForOutstanding = await Order.find({
 
@@ -260,6 +278,10 @@ const getSalespersonPerformance = async (salespersonId, loggedInUser, query = {}
         totalOrders,
 
         completedOrders,
+
+        grossSales,
+
+        returnedAmount,
 
         totalSales,
 

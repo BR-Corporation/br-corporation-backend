@@ -54,6 +54,10 @@ const buildSalespersonPerformance = (metrics) => {
 
             completed: metrics.completedOrders,
 
+            grossSales: metrics.grossSales,
+
+            returnedAmount: metrics.returnedAmount,
+
             totalSales: metrics.totalSales,
 
             averageOrderValue: metrics.averageOrderValue
