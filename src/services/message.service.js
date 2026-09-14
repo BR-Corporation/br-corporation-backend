@@ -304,4 +304,70 @@ const getAnyThread = async (userAId, userBId) => {
     };
 };
 
-module.exports = { sendMessage, getThread, listThreads, listAllConversations, getAnyThread };
+/**
+ * ADMIN: read a customer's entire conversation — messages between
+ * customer↔salesperson AND customer↔any admin, merged chronologically.
+ * This is the "look over the shoulder" view the admin uses to see
+ * everything the customer has ever exchanged with the business.
+ */
+const getCustomerConversation = async (customerUserId) => {
+    const customer = await User.findById(customerUserId).select("Name role phoneNumber email");
+    if (!customer) throw new BusinessError("Customer not found.", 404);
+
+    const profile = await CustomerProfile.findOne({ user: customerUserId }).select("assignedSalesperson businessName");
+    const spId = profile?.assignedSalesperson?.toString() || null;
+
+    const admins = await User.find({ role: "admin", status: { $ne: "suspended" } }).select("_id Name role");
+    const adminIds = admins.map((a) => a._id.toString());
+
+    const counterpartyIds = Array.from(new Set([
+        ...(spId ? [spId] : []),
+        ...adminIds,
+    ]));
+
+    if (counterpartyIds.length === 0) {
+        return { success: true, customer, salesperson: null, messages: [] };
+    }
+
+    const messages = await Message.find({
+        $or: [
+            { from: customerUserId, to: { $in: counterpartyIds } },
+            { from: { $in: counterpartyIds }, to: customerUserId },
+        ],
+    }).sort("createdAt").limit(500);
+
+    const authorLookupIds = new Set();
+    for (const m of messages) {
+        if (m.authorId) authorLookupIds.add(m.authorId.toString());
+        else authorLookupIds.add(m.from.toString());
+    }
+    const users = authorLookupIds.size
+        ? await User.find({ _id: { $in: Array.from(authorLookupIds) } }).select("Name role")
+        : [];
+    const userMap = new Map(users.map((u) => [u._id.toString(), u]));
+
+    const sp = spId ? await User.findById(spId).select("Name role") : null;
+
+    return {
+        success: true,
+        customer: { id: customer._id, Name: customer.Name, role: customer.role, phoneNumber: customer.phoneNumber, email: customer.email, businessName: profile?.businessName },
+        salesperson: sp ? { id: sp._id, Name: sp.Name, role: sp.role } : null,
+        messages: messages.map((m) => {
+            const effectiveAuthorId = m.authorId ? m.authorId.toString() : m.from.toString();
+            const author = userMap.get(effectiveAuthorId) || null;
+            return {
+                id: m._id,
+                from: m.from,
+                to: m.to,
+                authorId: effectiveAuthorId,
+                authorName: author?.Name || null,
+                authorRole: author?.role || null,
+                text: m.text,
+                createdAt: m.createdAt,
+                readAt: m.readAt,
+            };
+        }),
+    };
+};
+
+module.exports = { sendMessage, getThread, listThreads, listAllConversations, getAnyThread, getCustomerConversation };

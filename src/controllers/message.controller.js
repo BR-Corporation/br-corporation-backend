@@ -38,4 +38,11 @@ const getAnyThread = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
-module.exports = { sendMessage, getThread, listThreads, listAllConversations, getAnyThread };
+const getCustomerConversation = async (req, res, next) => {
+    try {
+        const result = await messageService.getCustomerConversation(req.params.customerUserId);
+        return res.status(200).json(result);
+    } catch (error) { next(error); }
+};
+
+module.exports = { sendMessage, getThread, listThreads, listAllConversations, getAnyThread, getCustomerConversation };

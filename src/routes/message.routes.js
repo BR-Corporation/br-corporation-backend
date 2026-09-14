@@ -12,5 +12,6 @@ router.get("/thread/:otherUserId", authenticate, messageController.getThread);
 // Admin oversight — see every conversation and read any thread
 router.get("/admin/conversations", authenticate, authorize("admin"), messageController.listAllConversations);
 router.get("/admin/thread/:userAId/:userBId", authenticate, authorize("admin"), messageController.getAnyThread);
+router.get("/admin/customer/:customerUserId", authenticate, authorize("admin"), messageController.getCustomerConversation);
 
 module.exports = router;
