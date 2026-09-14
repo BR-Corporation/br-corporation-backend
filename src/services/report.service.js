@@ -1,4 +1,5 @@
 const CustomerProfile = require("../models/customerProfile.model");
+const OrderReturn = require("../models/orderReturn.model");
 const User = require("../models/user.model");
 const Quotation = require("../models/quotation.model");
 const Order = require("../models/order.model");
@@ -72,6 +73,28 @@ const getSalesReport = async (loggedInUser, query = {}) => {
     const totalOrders = orders.length;
 
     const averageOrderValue = totalOrders > 0 ? roundToTwo(totalSales / totalOrders) : 0;
+
+    // Completed returns against the orders in scope — filter by order id
+    // so a date range on the sales report also constrains returns.
+    const orderIds = orders.map((o) => o._id);
+    const completedReturns = await OrderReturn.find({
+        order: { $in: orderIds },
+        status: "completed"
+    }).select("items order");
+
+    const returnedAmount = roundToTwo(
+        completedReturns.reduce((s, r) => s + r.items.reduce((a, i) => a + (i.lineTotal || 0), 0), 0)
+    );
+
+    const totalRevenue = roundToTwo(Math.max(0, totalSales - returnedAmount));
+
+    // Per-order refunded amount for salesperson / customer / product aggregation
+    const returnedByOrder = new Map();
+    for (const r of completedReturns) {
+        const oid = r.order.toString();
+        const amt = r.items.reduce((a, i) => a + (i.lineTotal || 0), 0);
+        returnedByOrder.set(oid, (returnedByOrder.get(oid) || 0) + amt);
+    }
 
     // Sales by date
     const salesByDate = await Order.aggregate([
@@ -272,6 +295,10 @@ const getSalesReport = async (loggedInUser, query = {}) => {
     return buildSalesReport({
 
         totalSales,
+
+        totalRevenue,
+
+        returnedAmount,
 
         totalOrders,
 

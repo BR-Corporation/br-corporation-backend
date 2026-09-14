@@ -10,6 +10,10 @@ const buildSalesReport = (report) => {
 
         totalSales: report.totalSales,
 
+        totalRevenue: report.totalRevenue,
+
+        returnedAmount: report.returnedAmount,
+
         totalOrders: report.totalOrders,
 
         averageOrderValue: report.averageOrderValue,
