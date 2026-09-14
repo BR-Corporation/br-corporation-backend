@@ -41,7 +41,7 @@ const getSalesReport = async (loggedInUser, query = {}) => {
         }
 
         if (endDate) {
-            dateFilter.createdAt.$lte = new Date(endDate);
+            dateFilter.createdAt.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
         }
     }
 
@@ -548,7 +548,7 @@ const getPaymentReport = async (loggedInUser, query = {}) => {
         }
 
         if (endDate) {
-            filter.paymentDate.$lte = new Date(endDate);
+            filter.paymentDate.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
         }
     }
 
@@ -703,7 +703,7 @@ const getSalespersonReport = async (salespersonId, loggedInUser, query = {}) => 
         }
 
         if (endDate) {
-            dateFilter.createdAt.$lte = new Date(endDate);
+            dateFilter.createdAt.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
         }
     }
 
@@ -814,7 +814,7 @@ const getManagerReport = async (managerId, loggedInUser, query = {}) => {
         }
 
         if (endDate) {
-            dateFilter.createdAt.$lte = new Date(endDate);
+            dateFilter.createdAt.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
         }
     }
 

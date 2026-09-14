@@ -60,7 +60,7 @@ const getSalespersonPerformance = async (salespersonId, loggedInUser, query = {}
         }
 
         if (endDate) {
-            dateFilter.createdAt.$lte = new Date(endDate);
+            dateFilter.createdAt.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
         }
     }
 
@@ -317,7 +317,7 @@ const getSalespersonComparison = async (loggedInUser, query = {}) => {
         }
 
         if (endDate) {
-            dateFilter.createdAt.$lte = new Date(endDate);
+            dateFilter.createdAt.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
         }
     }
 

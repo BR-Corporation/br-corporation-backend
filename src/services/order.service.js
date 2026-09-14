@@ -423,7 +423,7 @@ const getOrders = async (query, loggedInUser) => {
         }
 
         if (endDate) {
-            filter.createdAt.$lte = new Date(endDate);
+            filter.createdAt.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
         }
     }
 

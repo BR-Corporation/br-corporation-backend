@@ -304,7 +304,7 @@ const getPayments = async (query, loggedInUser) => {
         }
 
         if (endDate) {
-            filter.paymentDate.$lte = new Date(endDate);
+            filter.paymentDate.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
         }
     }
 

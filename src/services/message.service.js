@@ -104,10 +104,22 @@ const getThread = async (currentUser, otherUserId) => {
         await assertRelationship(currentUser, otherUserId);
     }
 
+    // For customers, merge any admin↔customer direct messages into the same
+    // salesperson thread — so they see one window with "via admin" chips
+    // inline, never a second tab for admin.
+    let counterpartyIds = [otherUserId];
+    if (currentUser.role === "customer") {
+        const admins = await User.find({ role: "admin", status: { $ne: "suspended" } }).select("_id");
+        counterpartyIds = Array.from(new Set([
+            otherUserId.toString(),
+            ...admins.map((a) => a._id.toString())
+        ]));
+    }
+
     const messages = await Message.find({
         $or: [
-            { from: currentUser._id, to: otherUserId },
-            { from: otherUserId, to: currentUser._id },
+            { from: currentUser._id, to: { $in: counterpartyIds } },
+            { from: { $in: counterpartyIds }, to: currentUser._id },
         ],
     })
         .sort("createdAt")
@@ -115,32 +127,44 @@ const getThread = async (currentUser, otherUserId) => {
 
     // mark unread messages TO me as read
     await Message.updateMany(
-        { from: otherUserId, to: currentUser._id, readAt: null },
+        { from: { $in: counterpartyIds }, to: currentUser._id, readAt: null },
         { $set: { readAt: new Date() } }
     );
 
-    // Load author names so the UI can render "via Admin" chips inline
-    const authorIds = Array.from(new Set(messages.map((m) => m.authorId?.toString()).filter(Boolean)));
-    const authors = authorIds.length
-        ? await User.find({ _id: { $in: authorIds } }).select("Name role")
+    // Load author names so the UI can render "via Admin" chips inline.
+    // For legacy messages sent directly by admin with authorId=null, fall
+    // back to the `from` user so their role still comes through.
+    const idsForLookup = new Set();
+    for (const m of messages) {
+        if (m.authorId) idsForLookup.add(m.authorId.toString());
+        else idsForLookup.add(m.from.toString());
+    }
+    const users = idsForLookup.size
+        ? await User.find({ _id: { $in: Array.from(idsForLookup) } }).select("Name role")
         : [];
-    const authorMap = new Map(authors.map((u) => [u._id.toString(), u]));
+    const authorMap = new Map(users.map((u) => [u._id.toString(), u]));
 
     const other = await User.findById(otherUserId).select("Name role phoneNumber email");
     return {
         success: true,
         other: other ? { id: other._id, Name: other.Name, role: other.role, phoneNumber: other.phoneNumber, email: other.email } : null,
         messages: messages.map((m) => {
-            const author = m.authorId ? authorMap.get(m.authorId.toString()) : null;
+            // Determine "who really wrote this". authorId wins when set; else
+            // fall back to `from` (covers legacy direct admin→customer msgs).
+            const effectiveAuthorId = m.authorId ? m.authorId.toString() : m.from.toString();
+            const author = authorMap.get(effectiveAuthorId) || null;
+            const mine =
+                m.from.toString() === currentUser._id.toString() ||
+                m.authorId?.toString() === currentUser._id.toString();
             return {
                 id: m._id,
                 from: m.from,
                 to: m.to,
-                authorId: m.authorId || null,
+                authorId: effectiveAuthorId,
                 authorName: author?.Name || null,
                 authorRole: author?.role || null,
                 text: m.text,
-                mine: m.from.toString() === currentUser._id.toString() || m.authorId?.toString() === currentUser._id.toString(),
+                mine,
                 createdAt: m.createdAt,
                 readAt: m.readAt,
             };
@@ -161,11 +185,27 @@ const listThreads = async (currentUser) => {
         .limit(1000)
         .lean();
 
+    // Customer view: collapse every admin↔customer interaction into the
+    // salesperson thread. If a message's other-party is admin (either
+    // directly `from` an admin or `authorId` an admin), treat it as if it
+    // were with the customer's assigned salesperson.
+    let adminIdsSet = new Set();
+    let mySalespersonId = null;
+    if (currentUser.role === "customer") {
+        const admins = await User.find({ role: "admin", status: { $ne: "suspended" } }).select("_id");
+        adminIdsSet = new Set(admins.map((a) => a._id.toString()));
+        const profile = await CustomerProfile.findOne({ user: currentUser._id }).select("assignedSalesperson");
+        mySalespersonId = profile?.assignedSalesperson?.toString() || null;
+    }
+
     const otherMap = new Map();
     for (const m of msgs) {
-        const otherId = m.from.toString() === currentUser._id.toString()
+        let otherId = m.from.toString() === currentUser._id.toString()
             ? m.to.toString()
             : m.from.toString();
+        if (adminIdsSet.has(otherId) && mySalespersonId) {
+            otherId = mySalespersonId;
+        }
         if (!otherMap.has(otherId)) {
             otherMap.set(otherId, { lastMessage: m, unread: 0 });
         }
