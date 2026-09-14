@@ -689,6 +689,10 @@ const updateOrderStatus = async (orderId, newStatus, loggedInUser) => {
 
     const notificationTypeMap = {
 
+        confirmed: "order_confirmed",
+
+        processing: "order_processing",
+
         completed: "order_completed",
 
         cancelled: "order_cancelled"

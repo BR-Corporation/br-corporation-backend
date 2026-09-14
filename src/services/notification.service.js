@@ -206,7 +206,9 @@ const notifyAllApprovedCustomers = async ({ type, title, message, referenceEntit
                 referenceId
             });
         }
-    } catch (_) { /* non-fatal */ }
+    } catch (e) {
+        console.error("notifyAllApprovedCustomers failed:", e.message);
+    }
 };
 
 /**
@@ -226,7 +228,9 @@ const notifyAllAdmins = async ({ type, title, message, referenceEntity, referenc
                 referenceId
             });
         }
-    } catch (_) { /* non-fatal */ }
+    } catch (e) {
+        console.error("notifyAllAdmins failed:", e.message);
+    }
 };
 
 module.exports = {

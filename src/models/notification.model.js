@@ -12,21 +12,36 @@ const notificationSchema = new mongoose.Schema(
         type: {
             type: String,
             enum: [
+                // Quotations
                 "quotation_created",
                 "quotation_sent",
                 "quotation_accepted",
                 "quotation_rejected",
+                "quotation_requested",
+                // Follow-ups
                 "follow_up_due",
                 "follow_up_overdue",
+                // Orders
                 "order_created",
+                "order_confirmed",
+                "order_processing",
                 "order_completed",
+                "order_cancelled",
+                // Payments
                 "payment_received",
                 "payment_overdue",
+                "payment_refunded",
+                // Inventory
                 "low_stock",
-                "order_cancelled",
+                // Returns
+                "return_created",
                 "return_approved",
                 "return_rejected",
-                "return_completed"
+                "return_completed",
+                // Messaging
+                "message_received",
+                // Catalog
+                "product_created"
             ],
             required: [true, "Notification type is required."]
         },
@@ -50,8 +65,18 @@ const notificationSchema = new mongoose.Schema(
 
         referenceEntity: {
             type: String,
-            enum: ["quotation", "order", "payment", "follow_up", "product", "return"],
-            required: true
+            enum: [
+                "quotation", "quotationrequest",
+                "order", "orderreturn",
+                "payment",
+                "follow_up",
+                "product",
+                "return",
+                "message"
+            ],
+            required: true,
+            // Normalize casing so callers can pass "Order" / "OrderReturn" / "QuotationRequest".
+            set: (v) => typeof v === "string" ? v.toLowerCase() : v
         },
 
         referenceId: {
