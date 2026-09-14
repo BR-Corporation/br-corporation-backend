@@ -14,6 +14,16 @@ const messageSchema = new mongoose.Schema(
             required: true,
             index: true,
         },
+        // The user this message is grouped under (customer <-> salesperson thread).
+        // 99% of the time this equals `from`, but when admin sends into a
+        // customer/salesperson thread we store `from = salesperson` and
+        // `authorId = admin` so the message shows in-line in the same
+        // customer↔salesperson window with a "via admin" chip.
+        authorId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null,
+        },
         text: {
             type: String,
             required: true,

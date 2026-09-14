@@ -40,22 +40,45 @@ const sendMessage = async ({ from, toUserId, text }) => {
     if (!text || !text.trim()) throw new BusinessError("Message cannot be empty.", 400);
     if (text.length > 2000) throw new BusinessError("Message too long.", 400);
 
-    await assertRelationship(from, toUserId);
+    const toUser = await User.findById(toUserId);
+    if (!toUser) throw new BusinessError("Recipient not found.", 404);
+
+    // If admin messages a customer, route the message into the customer's
+    // existing salesperson thread instead of opening a separate admin chat.
+    // The message is stored with from = salesperson so it shows up in the
+    // same window; authorId = admin so the UI can show a "via Admin" chip.
+    let effectiveFromId = from._id;
+    let authorId = null;
+
+    if (from.role === "admin" && toUser.role === "customer") {
+        const profile = await CustomerProfile.findOne({ user: toUser._id });
+        if (profile?.assignedSalesperson) {
+            effectiveFromId = profile.assignedSalesperson;
+            authorId = from._id;
+        }
+        // if no salesperson assigned yet, fall back to admin-as-from
+    } else {
+        // enforce the normal relationship rules for non-admin senders
+        await assertRelationship(from, toUserId);
+    }
 
     const msg = await Message.create({
-        from: from._id,
+        from: effectiveFromId,
         to: toUserId,
+        authorId,
         text: text.trim(),
     });
 
-    // fire-and-forget notification
+    // fire-and-forget notification (to the recipient customer)
     try {
         await createNotification({
             recipient: toUserId,
             type: "message_received",
-            title: `New message from ${from.Name || "your contact"}`,
+            title: authorId
+                ? `New message from admin`
+                : `New message from ${from.Name || "your contact"}`,
             message: text.length > 80 ? text.slice(0, 80) + "…" : text,
-            referenceEntity: "Message",
+            referenceEntity: "message",
             referenceId: msg._id,
         });
     } catch (_) { /* non-fatal */ }
@@ -64,6 +87,7 @@ const sendMessage = async ({ from, toUserId, text }) => {
         id: msg._id,
         from: msg.from,
         to: msg.to,
+        authorId: msg.authorId,
         text: msg.text,
         createdAt: msg.createdAt,
         readAt: msg.readAt,
@@ -75,7 +99,10 @@ const sendMessage = async ({ from, toUserId, text }) => {
  * Also marks the other-party's messages as read.
  */
 const getThread = async (currentUser, otherUserId) => {
-    await assertRelationship(currentUser, otherUserId);
+    // Admin can read any thread without being a party to it.
+    if (currentUser.role !== "admin") {
+        await assertRelationship(currentUser, otherUserId);
+    }
 
     const messages = await Message.find({
         $or: [
@@ -92,19 +119,32 @@ const getThread = async (currentUser, otherUserId) => {
         { $set: { readAt: new Date() } }
     );
 
+    // Load author names so the UI can render "via Admin" chips inline
+    const authorIds = Array.from(new Set(messages.map((m) => m.authorId?.toString()).filter(Boolean)));
+    const authors = authorIds.length
+        ? await User.find({ _id: { $in: authorIds } }).select("Name role")
+        : [];
+    const authorMap = new Map(authors.map((u) => [u._id.toString(), u]));
+
     const other = await User.findById(otherUserId).select("Name role phoneNumber email");
     return {
         success: true,
         other: other ? { id: other._id, Name: other.Name, role: other.role, phoneNumber: other.phoneNumber, email: other.email } : null,
-        messages: messages.map((m) => ({
-            id: m._id,
-            from: m.from,
-            to: m.to,
-            text: m.text,
-            mine: m.from.toString() === currentUser._id.toString(),
-            createdAt: m.createdAt,
-            readAt: m.readAt,
-        })),
+        messages: messages.map((m) => {
+            const author = m.authorId ? authorMap.get(m.authorId.toString()) : null;
+            return {
+                id: m._id,
+                from: m.from,
+                to: m.to,
+                authorId: m.authorId || null,
+                authorName: author?.Name || null,
+                authorRole: author?.role || null,
+                text: m.text,
+                mine: m.from.toString() === currentUser._id.toString() || m.authorId?.toString() === currentUser._id.toString(),
+                createdAt: m.createdAt,
+                readAt: m.readAt,
+            };
+        }),
     };
 };
 

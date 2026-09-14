@@ -64,12 +64,20 @@ const createOrderReturn = async (returnData, loggedInUser) => {
 
     }
 
-    // Build order item map for quantity validation
+    // Build order item map — quantity AND the actual pricing the customer
+    // saw at order time (unitPrice, discount%, tax%). Refunds must use these,
+    // not the product's current sellingPrice, otherwise post-order price
+    // changes would break refund fairness.
     const orderItemMap = {};
 
     for (const item of order.items) {
 
-        orderItemMap[item.product.toString()] = item.quantity;
+        orderItemMap[item.product.toString()] = {
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discount: item.discount || 0,
+            tax: item.tax || 0
+        };
 
     }
 
@@ -88,11 +96,11 @@ const createOrderReturn = async (returnData, loggedInUser) => {
 
         const requestedQuantity = previousReturnQuantity + item.quantity;
 
-        if (requestedQuantity > orderItemMap[item.product]) {
+        if (requestedQuantity > orderItemMap[item.product].quantity) {
 
             throw new BusinessError(
 
-                `Return quantity for product ${item.product} exceeds ordered quantity. Ordered: ${orderItemMap[item.product]}, Requested: ${requestedQuantity}`,
+                `Return quantity for product ${item.product} exceeds ordered quantity. Ordered: ${orderItemMap[item.product].quantity}, Requested: ${requestedQuantity}`,
 
                 400
 
@@ -107,11 +115,9 @@ const createOrderReturn = async (returnData, loggedInUser) => {
     // Check if full return
     const isFullReturn = Object.keys(returnQuantityMap).length === order.items.length &&
 
-        Object.values(returnQuantityMap).every((qty, idx) => {
+        Object.entries(returnQuantityMap).every(([productId, qty]) => {
 
-            const productId = Object.keys(returnQuantityMap)[idx];
-
-            return qty === orderItemMap[productId];
+            return qty === orderItemMap[productId].quantity;
 
         });
 
@@ -127,6 +133,17 @@ const createOrderReturn = async (returnData, loggedInUser) => {
 
         }
 
+        const paidPricing = orderItemMap[item.product.toString()] || {};
+        const unitPrice = paidPricing.unitPrice ?? product.sellingPrice;
+        const discountPct = paidPricing.discount ?? 0;
+        const taxPct = paidPricing.tax ?? 0;
+
+        // Refundable line = qty × unitPrice × (1 - discount%) × (1 + tax%)
+        // — exactly what the customer paid per unit at order time.
+        const gross = item.quantity * unitPrice;
+        const afterDiscount = gross - gross * (discountPct / 100);
+        const withTax = afterDiscount + afterDiscount * (taxPct / 100);
+
         validatedItems.push({
 
             product: product._id,
@@ -135,9 +152,9 @@ const createOrderReturn = async (returnData, loggedInUser) => {
 
             quantity: item.quantity,
 
-            unitPrice: product.sellingPrice,
+            unitPrice,
 
-            lineTotal: roundToTwo(item.quantity * product.sellingPrice)
+            lineTotal: roundToTwo(withTax)
 
         });
 

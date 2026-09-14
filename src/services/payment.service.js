@@ -569,6 +569,30 @@ const recordRefund = async (refundData, loggedInUser) => {
         );
     }
 
+    // If this refund is tied to a specific return, cap it at that return's
+    // value minus what's already been refunded against it. Stops admin from
+    // refunding more than the returned goods are worth.
+    if (orderReturnId) {
+        const OrderReturn = require("../models/orderReturn.model");
+        const orderReturn = await OrderReturn.findById(orderReturnId);
+        if (orderReturn) {
+            const returnValue = orderReturn.items.reduce((s, i) => s + (i.lineTotal || 0), 0);
+            const priorReturnRefunds = await Payment.find({
+                order: order._id,
+                type: "refund",
+                orderReturn: orderReturnId
+            });
+            const alreadyRefundedOnReturn = priorReturnRefunds.reduce((s, p) => s + (p.amount || 0), 0);
+            const remaining = roundToTwo(Math.max(0, returnValue - alreadyRefundedOnReturn));
+            if (refundAmount > remaining) {
+                throw new BusinessError(
+                    `Refund exceeds this return's value. Return worth ₹${returnValue}, already refunded ₹${alreadyRefundedOnReturn}, so at most ₹${remaining} more.`,
+                    400
+                );
+            }
+        }
+    }
+
     const payment = await Payment.create({
         customerProfile: order.customerProfile._id,
         order: order._id,
