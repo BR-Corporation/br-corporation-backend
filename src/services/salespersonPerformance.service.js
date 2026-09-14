@@ -228,14 +228,23 @@ const getSalespersonPerformance = async (salespersonId, loggedInUser, query = {}
 
         orderStatus: { $nin: ["cancelled"] }
 
-    }).select("grandTotal paymentStatus");
+    }).select("_id grandTotal paymentStatus");
+
+    const outIds = ordersForOutstanding.map((o) => o._id);
+    const outPayments = outIds.length
+        ? await Payment.find({ order: { $in: outIds } }).select("order amount type")
+        : [];
+    const netByOrderOut = new Map();
+    for (const p of outPayments) {
+        const k = p.order.toString();
+        netByOrderOut.set(k, (netByOrderOut.get(k) || 0) + (p.type === "refund" ? -p.amount : p.amount));
+    }
 
     const totalOutstandingAmount = roundToTwo(ordersForOutstanding.reduce((sum, order) => {
-
         if (order.paymentStatus === "paid") return sum;
-
-        return sum + order.grandTotal;
-
+        const netPaid = netByOrderOut.get(order._id.toString()) || 0;
+        const remaining = order.grandTotal - netPaid;
+        return sum + (remaining > 0 ? remaining : 0);
     }, 0));
 
     // Conversion rate (orders / quotations)

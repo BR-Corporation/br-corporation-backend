@@ -605,13 +605,28 @@ const getPaymentReport = async (loggedInUser, query = {}) => {
 
     }
 
-    const orders = await Order.find(orderFilter).select("grandTotal paymentStatus");
+    const orders = await Order.find(orderFilter).select("_id grandTotal paymentStatus orderStatus");
 
+    const orderIds = orders.map((o) => o._id);
+    const orderPayments = orderIds.length
+        ? await Payment.find({ order: { $in: orderIds } }).select("order amount type")
+        : [];
+    const netPaidByOrder = new Map();
+    for (const p of orderPayments) {
+        const k = p.order.toString();
+        const delta = p.type === "refund" ? -p.amount : p.amount;
+        netPaidByOrder.set(k, (netPaidByOrder.get(k) || 0) + delta);
+    }
+
+    // Outstanding per order = grandTotal - net payments, floored at 0.
+    // Was adding full grandTotal for any non-paid order, inflating partials.
     const totalOutstanding = roundToTwo(orders.reduce((sum, o) => {
 
         if (o.paymentStatus === "paid") return sum;
 
-        return sum + o.grandTotal;
+        const netPaid = netPaidByOrder.get(o._id.toString()) || 0;
+        const remaining = o.grandTotal - netPaid;
+        return sum + (remaining > 0 ? remaining : 0);
 
     }, 0));
 

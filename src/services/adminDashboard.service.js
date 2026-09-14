@@ -412,14 +412,27 @@ const getAdminDashboard = async (loggedInUser, query = {}) => {
     const refundsIssued = roundToTwo(payments.reduce((sum, p) =>
         sum + (p.type === "refund" ? p.amount : 0), 0));
 
-    const allOrders = await Order.find({ orderStatus: { $nin: ["cancelled"] } }).select("grandTotal paymentStatus");
+    const allOrders = await Order.find({ orderStatus: { $nin: ["cancelled"] } }).select("_id grandTotal paymentStatus");
+
+    // Outstanding per order = grandTotal - (payments - refunds) for that order.
+    // Previously we added the FULL grandTotal for any non-paid order, which
+    // over-counted partial-paid orders by the amount already collected.
+    const orderIds = allOrders.map((o) => o._id);
+    const orderPayments = orderIds.length
+        ? await Payment.find({ order: { $in: orderIds } }).select("order amount type")
+        : [];
+    const netByOrder = new Map();
+    for (const p of orderPayments) {
+        const k = p.order.toString();
+        const delta = p.type === "refund" ? -p.amount : p.amount;
+        netByOrder.set(k, (netByOrder.get(k) || 0) + delta);
+    }
 
     const outstandingAmount = roundToTwo(allOrders.reduce((sum, order) => {
-
         if (order.paymentStatus === "paid") return sum;
-
-        return sum + order.grandTotal;
-
+        const netPaid = netByOrder.get(order._id.toString()) || 0;
+        const remaining = order.grandTotal - netPaid;
+        return sum + (remaining > 0 ? remaining : 0);
     }, 0));
 
     const overduePayments = await Order.countDocuments({
