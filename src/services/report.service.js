@@ -576,12 +576,20 @@ const getPaymentReport = async (loggedInUser, query = {}) => {
         .populate({ path: "customerProfile", select: "businessName" })
         .populate({ path: "order", select: "orderStatus grandTotal" })
         .populate({ path: "createdBy", select: "Name" })
-        .select("amount paymentMethod paymentDate transactionReference")
+        .select("amount paymentMethod paymentDate transactionReference type orderReturn")
         .sort({ paymentDate: -1 });
 
     const totalPayments = payments.length;
 
-    const totalCollected = roundToTwo(payments.reduce((sum, p) => sum + p.amount, 0));
+    const grossCollected = roundToTwo(
+        payments.reduce((sum, p) => sum + (p.type === "refund" ? 0 : p.amount), 0)
+    );
+
+    const totalRefunded = roundToTwo(
+        payments.reduce((sum, p) => sum + (p.type === "refund" ? p.amount : 0), 0)
+    );
+
+    const totalCollected = roundToTwo(grossCollected - totalRefunded);
 
     const orderFilter = { orderStatus: { $nin: ["cancelled"] } };
 
@@ -615,6 +623,8 @@ const getPaymentReport = async (loggedInUser, query = {}) => {
 
         amount: p.amount,
 
+        type: p.type || "payment",
+
         paymentMethod: p.paymentMethod,
 
         paymentDate: p.paymentDate,
@@ -638,6 +648,10 @@ const getPaymentReport = async (loggedInUser, query = {}) => {
     return buildPaymentReport({
 
         totalPayments,
+
+        grossCollected,
+
+        totalRefunded,
 
         totalCollected,
 

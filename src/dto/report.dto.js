@@ -88,6 +88,10 @@ const buildPaymentReport = (report) => {
 
         totalPayments: report.totalPayments,
 
+        grossCollected: report.grossCollected,
+
+        totalRefunded: report.totalRefunded,
+
         totalCollected: report.totalCollected,
 
         totalOutstanding: report.totalOutstanding,
