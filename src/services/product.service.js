@@ -17,7 +17,8 @@ const {
 } = require("../dto/inventoryMovement.dto");
 
 const {
-    createNotification
+    createNotification,
+    notifyAllApprovedCustomers
 } = require("./notification.service");
 
 const fs = require("fs");
@@ -84,6 +85,17 @@ const createProduct = async (productData, loggedInUser, imageFile) => {
         { path: "updatedBy", select: "Name email" }
 
     ]);
+
+    // Ping all approved customers about the new product so they can shop it.
+    if (product.status === "active") {
+        await notifyAllApprovedCustomers({
+            type: "product_created",
+            title: "New product available",
+            message: `${product.name} is now in stock at ₹${product.sellingPrice}. Browse it in Shop products.`,
+            referenceEntity: "product",
+            referenceId: product._id
+        });
+    }
 
     return buildProductDetail(product);
 

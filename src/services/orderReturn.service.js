@@ -473,6 +473,8 @@ const getOrderReturns = async (orderId, loggedInUser) => {
 
         count: orderReturns.length,
 
+        returns: buildOrderReturnList(orderReturns),
+
         orderReturns: buildOrderReturnList(orderReturns)
 
     };
@@ -514,6 +516,8 @@ const getCustomerReturns = async (customerProfileId, loggedInUser) => {
         success: true,
 
         count: orderReturns.length,
+
+        returns: buildOrderReturnList(orderReturns),
 
         orderReturns: buildOrderReturnList(orderReturns)
 

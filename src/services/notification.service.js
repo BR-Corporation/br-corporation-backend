@@ -191,6 +191,25 @@ const markAllNotificationsAsRead = async (userId) => {
 };
 
 /**
+ * Send the same notification to every approved customer.
+ */
+const notifyAllApprovedCustomers = async ({ type, title, message, referenceEntity, referenceId }) => {
+    try {
+        const customers = await User.find({ role: "customer", status: "approved" }).select("_id");
+        for (const u of customers) {
+            await createNotification({
+                recipient: u._id,
+                type,
+                title,
+                message,
+                referenceEntity,
+                referenceId
+            });
+        }
+    } catch (_) { /* non-fatal */ }
+};
+
+/**
  * Send the same notification to every active admin.
  * Failures are swallowed so caller flow (order creation, etc.) isn't broken.
  */
@@ -215,6 +234,8 @@ module.exports = {
     createNotification,
 
     notifyAllAdmins,
+
+    notifyAllApprovedCustomers,
 
     getUserNotifications,
 

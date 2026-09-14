@@ -701,30 +701,25 @@ const updateOrderStatus = async (orderId, newStatus, loggedInUser) => {
 
         if (customerProfile) {
 
-            const recipientId = newStatus === "completed" ?
+            // Always ping the customer on any status change so they see their order move.
+            const recipients = [customerProfile.user];
 
-                order.salesperson?._id || order.salesperson :
+            // On completion, ping the salesperson too (they closed the deal).
+            if (newStatus === "completed") {
+                const spId = order.salesperson?._id || order.salesperson;
+                if (spId) recipients.push(spId);
+            }
 
-                customerProfile.user;
-
-            if (recipientId) {
-
+            for (const recipientId of recipients) {
+                if (!recipientId) continue;
                 await createNotification({
-
                     recipient: recipientId,
-
                     type: notificationTypeMap[newStatus],
-
                     title: activityTitleMap[newStatus],
-
-                    message: `Order #${order._id} has been ${newStatus}.`,
-
+                    message: `Order #${String(order._id).slice(-6)} has been ${newStatus}.`,
                     referenceEntity: "order",
-
                     referenceId: order._id
-
                 });
-
             }
 
         }
