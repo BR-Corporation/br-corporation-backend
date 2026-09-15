@@ -370,4 +370,56 @@ const getCustomerConversation = async (customerUserId) => {
     };
 };
 
-module.exports = { sendMessage, getThread, listThreads, listAllConversations, getAnyThread, getCustomerConversation };
+/**
+ * Delete every message between the current user and the other party.
+ * Customer: also clears any admin↔customer messages so their view is one thread.
+ * Admin: clears the customer's full conversation (SP + all admins).
+ * Other roles: clears only the direct pair.
+ */
+const clearThread = async (currentUser, otherUserId) => {
+    const other = await User.findById(otherUserId);
+    if (!other) throw new BusinessError("Recipient not found.", 404);
+
+    let counterpartyIds = [otherUserId.toString()];
+
+    if (currentUser.role === "admin") {
+        // Admin clears the customer's full conversation.
+        if (other.role !== "customer") {
+            throw new BusinessError("Admin can only clear customer conversations.", 400);
+        }
+        const profile = await CustomerProfile.findOne({ user: otherUserId }).select("assignedSalesperson");
+        const spId = profile?.assignedSalesperson?.toString();
+        const admins = await User.find({ role: "admin" }).select("_id");
+        const adminIds = admins.map((a) => a._id.toString());
+        counterpartyIds = Array.from(new Set([...(spId ? [spId] : []), ...adminIds]));
+
+        const result = await Message.deleteMany({
+            $or: [
+                { from: otherUserId, to: { $in: counterpartyIds } },
+                { from: { $in: counterpartyIds }, to: otherUserId },
+            ],
+        });
+        return { success: true, deleted: result.deletedCount || 0 };
+    }
+
+    if (currentUser.role === "customer") {
+        const admins = await User.find({ role: "admin" }).select("_id");
+        counterpartyIds = Array.from(new Set([
+            otherUserId.toString(),
+            ...admins.map((a) => a._id.toString()),
+        ]));
+    } else {
+        // Salesperson / manager can only clear their own pair
+        await assertRelationship(currentUser, otherUserId);
+    }
+
+    const result = await Message.deleteMany({
+        $or: [
+            { from: currentUser._id, to: { $in: counterpartyIds } },
+            { from: { $in: counterpartyIds }, to: currentUser._id },
+        ],
+    });
+    return { success: true, deleted: result.deletedCount || 0 };
+};
+
+module.exports = { sendMessage, getThread, listThreads, listAllConversations, getAnyThread, getCustomerConversation, clearThread };

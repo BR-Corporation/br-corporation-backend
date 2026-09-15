@@ -21,6 +21,8 @@ const buildProductSummary = (product) => {
 
         sellingPrice: product.sellingPrice,
 
+        costPrice: product.costPrice,
+
         tax: product.tax,
 
         unit: product.unit,

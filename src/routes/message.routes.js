@@ -14,4 +14,7 @@ router.get("/admin/conversations", authenticate, authorize("admin"), messageCont
 router.get("/admin/thread/:userAId/:userBId", authenticate, authorize("admin"), messageController.getAnyThread);
 router.get("/admin/customer/:customerUserId", authenticate, authorize("admin"), messageController.getCustomerConversation);
 
+// Clear chat — admin/customer can wipe an entire conversation
+router.delete("/thread/:otherUserId", authenticate, messageController.clearThread);
+
 module.exports = router;

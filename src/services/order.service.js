@@ -148,8 +148,18 @@ const createOrder = async (orderData, loggedInUser) => {
 
     if (loggedInUser.role === "salesperson") {
 
+        // Salespeople no longer create orders directly — orders come from a
+        // customer accepting a quotation (via convertQuotationToOrder, which
+        // sets loggedInUser=customer for this call). Any direct call from a
+        // salesperson is blocked.
+        const isFromQuotationAccept = Boolean(orderData.quotationId);
+        if (!isFromQuotationAccept) {
+            throw new BusinessError(
+                "Salespeople can't create orders directly. Send a quotation instead.",
+                403
+            );
+        }
         await verifyCustomerOwnership(customerProfileId, loggedInUser);
-
         salespersonIdToUse = loggedInUser._id.toString();
 
     } else if (loggedInUser.role === "manager") {

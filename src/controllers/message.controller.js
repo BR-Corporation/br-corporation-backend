@@ -45,4 +45,11 @@ const getCustomerConversation = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
-module.exports = { sendMessage, getThread, listThreads, listAllConversations, getAnyThread, getCustomerConversation };
+const clearThread = async (req, res, next) => {
+    try {
+        const result = await messageService.clearThread(req.user, req.params.otherUserId);
+        return res.status(200).json(result);
+    } catch (error) { next(error); }
+};
+
+module.exports = { sendMessage, getThread, listThreads, listAllConversations, getAnyThread, getCustomerConversation, clearThread };
